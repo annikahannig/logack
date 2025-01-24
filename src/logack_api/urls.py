@@ -15,6 +15,8 @@ router.register(r"subs", api.SubViewSet,
                 basename="sub")
 router.register(r"events", api.EventViewSet,
                 basename="event")
+router.register(r"labels", api.LabelsViewSet,
+                basename="label")
 
 urlpatterns = [
     path("", include(router.urls)),

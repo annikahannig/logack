@@ -158,3 +158,13 @@ class EventViewSet(ModelViewSet):
         return self.request.user.events.all()
 
 
+class LabelsViewSet(ViewSet):
+    """Labels"""
+    permission_classes = [ IsAuthenticated ]
+    def list(self, request):
+        """Get all labels for a user"""
+        labels = request.user.events \
+            .values_list("label", flat=True) \
+            .distinct()
+
+        return Response(labels)
