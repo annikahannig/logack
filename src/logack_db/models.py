@@ -1,4 +1,5 @@
 import uuid
+import secrets
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -16,8 +17,22 @@ class Sub(models.Model):
 
     name = models.CharField(max_length=60)
 
+    token = models.CharField(max_length=120)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        """Make sure a token is set"""
+        if not self.token:
+            self.token = secrets.token_urlsafe(32)
+
+        return super().save(*args, **kwargs)
+
+
+    def __str__(self):
+        """To String"""
+        return f"{self.name} ({self.id})"
 
 
 class Event(models.Model):
