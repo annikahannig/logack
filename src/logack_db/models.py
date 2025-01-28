@@ -5,6 +5,25 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+def make_token():
+    """Create a new random secret token"""
+    return secrets.token_urlsafe(72)
+
+
+class AuthToken(models.Model):
+    """
+    An auth token belongs to a user and may belong
+    to a sub.
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="tokens")
+
+    token = models.CharField(max_length=86, default=make_token)
+
+
+
 class Sub(models.Model):
     """
     A sub belongs to a user and has credentials for
@@ -17,7 +36,7 @@ class Sub(models.Model):
 
     name = models.CharField(max_length=60)
 
-    token = models.CharField(max_length=120)
+    token = models.CharField(max_length=86, default=make_token)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -25,7 +44,9 @@ class Sub(models.Model):
     def save(self, *args, **kwargs):
         """Make sure a token is set"""
         if not self.token:
-            self.token = secrets.token_urlsafe(32)
+            token = AuthToken(user=self.user)
+            token.save()
+            self.token = token 
 
         return super().save(*args, **kwargs)
 

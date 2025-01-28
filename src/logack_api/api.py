@@ -1,4 +1,5 @@
 import secrets
+from base64 import b64encode
 
 from rest_framework import serializers
 from rest_framework.serializers import (
@@ -16,17 +17,43 @@ from rest_framework.decorators import action
 from django.contrib.auth.models import User
 from django.contrib.auth import login, logout
 
+from logack_api.qrencode import qrencode
 from logack_db.models import (
     Sub,
     Event,
+    AuthToken,
 )
+
+
+class QrEncodedField(serializers.Field):
+    """QrEncode"""
+    def to_representation(self, value):
+        """To Repr"""
+        return b64encode(qrencode(value, "svg"))
+
 
 
 class UserSerializer(ModelSerializer):
     """Serialize the user"""
+
+    def to_representation(self, *args, **kwargs):
+        """Add additonal fields to result"""
+        rep = super().to_representation(*args, **kwargs)
+        token = None;
+        if not self.instance.is_anonymous:
+            auth_token = self.instance.tokens.first()
+            token = auth_token.token
+
+        rep["token"] = token
+        rep["token_qr"] = b64encode(qrencode(token, "svg"))
+
+        return rep
+
+
     class Meta:
         model = User
-        fields = ["id", "username", "first_name", "last_name", "is_anonymous"]
+        fields = ["id", "username", "first_name", "last_name",
+                  "is_anonymous"]
 
 
 class UserCreateSerializer(ModelSerializer):
@@ -34,11 +61,6 @@ class UserCreateSerializer(ModelSerializer):
     class Meta:
         model = User
         fields = ["first_name"]
-
-
-class UserLoginSerializer(Serializer):
-    """Login credentials"""
-    username = serializers.CharField(max_length=150)
 
 
 class UserViewSet(ViewSet):
@@ -51,22 +73,26 @@ class UserViewSet(ViewSet):
     def create(self, request):
         """Create a new user"""
         username = secrets.token_urlsafe(48)
-        token = secrets.token_urlsafe(64)
+
 
         serializer = UserCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
         user = User(
             username=username,
-            last_name=token,
-            first_name=data["first_name"])
-
+            **serializer.validated_data)
         user.save()
+
+        token = AuthToken(user=user)
+        token.save()
 
         serializer = UserSerializer(user)
 
         return Response(serializer.data)
+
+
+class UserLoginSerializer(Serializer):
+    """Login credentials"""
+    token = serializers.CharField(max_length=96)
 
 
 class LoginViewSet(ViewSet):
@@ -77,11 +103,10 @@ class LoginViewSet(ViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        user = User.objects.get(username=data["username"])
-        login(request, user)
+        token = AuthToken.objects.get(token=data["token"])
+        login(request, token.user)
 
-        serializer = UserSerializer(user)
-
+        serializer = UserSerializer(token.user)
         return Response(serializer.data)
 
 
@@ -90,7 +115,6 @@ class LogoutViewSet(ViewSet):
     def list(self, request):
         """Close session"""
         logout(request)
-
         return Response({"ok": True})
 
 
@@ -98,7 +122,6 @@ class RelatedUserField(PrimaryKeyRelatedField):
     def get_queryset(self):
         """Get queryset"""
         qs = User.objects.all()
-
         request = self.context.get("request")
         if request:
             qs = User.objects.filter(id=request.user.id)
@@ -121,11 +144,12 @@ class RelatedSubField(PrimaryKeyRelatedField):
 class SubSerializer(ModelSerializer):
     """Sub serializer"""
     user = RelatedUserField()
+    token_qr = QrEncodedField(source="token", read_only=True)
 
     class Meta:
         model = Sub
         fields = "__all__"
-        read_only_fields = ["token"]
+        read_only_fields = ["token", "token_qr"]
 
 
 class SubViewSet(ModelViewSet):
