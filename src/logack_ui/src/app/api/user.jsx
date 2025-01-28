@@ -1,6 +1,8 @@
 
 import { useEffect, useState, createContext, useContext } from "react"
 
+import { get, post } from "./request"
+
 export const UserContext = createContext();
 export const useUser = () => useContext(UserContext);
 
@@ -20,9 +22,11 @@ const defaultUser = {
  * API
  */
 async function apiGetUser() {
-    const res = await fetch("/api/v1/user");
-    const user = await res.json();
-    return user;
+    return await get("/api/v1/user/");
+}
+
+async function apiCreateUser(data) {
+    return await post("/api/v1/user/", data);
 }
 
 /**

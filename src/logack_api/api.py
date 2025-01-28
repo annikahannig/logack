@@ -45,7 +45,9 @@ class UserSerializer(ModelSerializer):
             token = auth_token.token
 
         rep["token"] = token
-        rep["token_qr"] = b64encode(qrencode(token, "svg"))
+
+        if token:
+            rep["token_qr"] = b64encode(qrencode(token, "svg"))
 
         return rep
 
