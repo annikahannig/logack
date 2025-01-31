@@ -12,7 +12,8 @@ const Init = () => {
     
     // Check if we are authenticated. If not, show signup.
     useEffect(() => {
-        if( user.is_anonymous ) {
+        console.log(user);
+        if( !user.loading && user.is_anonymous ) {
             navigate("/session/signin", {
                 replace: true,
             });
@@ -27,10 +28,14 @@ const Init = () => {
 }
 
 const SignInView = () => {
+    const user = useUser();
+    console.log(user);
     return <div>Sign In</div>;
 }
 
 const EventsView = () => {
+    const user = useUser();
+    console.log(user);
     return <div>[...events...]</div>;
 }
 

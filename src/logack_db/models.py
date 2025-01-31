@@ -10,20 +10,6 @@ def make_token():
     return secrets.token_urlsafe(72)
 
 
-class AuthToken(models.Model):
-    """
-    An auth token belongs to a user and may belong
-    to a sub.
-    """
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="tokens")
-
-    token = models.CharField(max_length=86, default=make_token)
-
-
-
 class Sub(models.Model):
     """
     A sub belongs to a user and has credentials for

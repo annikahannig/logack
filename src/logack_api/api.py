@@ -18,10 +18,10 @@ from django.contrib.auth.models import User
 from django.contrib.auth import login, logout
 
 from logack_api.qrencode import qrencode
+from logack_api.auth import TokenAuthentication
 from logack_db.models import (
     Sub,
     Event,
-    AuthToken,
 )
 
 
@@ -32,25 +32,13 @@ class QrEncodedField(serializers.Field):
         return b64encode(qrencode(value, "svg"))
 
 
-
 class UserSerializer(ModelSerializer):
     """Serialize the user"""
 
     def to_representation(self, *args, **kwargs):
         """Add additonal fields to result"""
         rep = super().to_representation(*args, **kwargs)
-        token = None;
-        if not self.instance.is_anonymous:
-            auth_token = self.instance.tokens.first()
-            token = auth_token.token
-
-        rep["token"] = token
-
-        if token:
-            rep["token_qr"] = b64encode(qrencode(token, "svg"))
-
         return rep
-
 
     class Meta:
         model = User
@@ -67,6 +55,8 @@ class UserCreateSerializer(ModelSerializer):
 
 class UserViewSet(ViewSet):
     """Users"""
+    authentication_classes = [ TokenAuthentication ]
+    
     def list(self, request):
         """Get the current user"""
         user = UserSerializer(request.user)
@@ -76,16 +66,13 @@ class UserViewSet(ViewSet):
         """Create a new user"""
         username = secrets.token_urlsafe(48)
 
-
         serializer = UserCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = User(
             username=username,
+            last_name=secrets.token_urlsafe(72),
             **serializer.validated_data)
         user.save()
-
-        token = AuthToken(user=user)
-        token.save()
 
         serializer = UserSerializer(user)
 
@@ -99,13 +86,15 @@ class UserLoginSerializer(Serializer):
 
 class LoginViewSet(ViewSet):
     """Login User"""
+    authentication_classes = [ TokenAuthentication ]
+
     def create(self, request):
         """Authenticate user"""
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        token = AuthToken.objects.get(token=data["token"])
+        token = User.objects.get(last_name=data["token"])
         login(request, token.user)
 
         serializer = UserSerializer(token.user)
@@ -114,6 +103,8 @@ class LoginViewSet(ViewSet):
 
 class LogoutViewSet(ViewSet):
     """Logout User"""
+    authentication_classes = [ TokenAuthentication ]
+
     def list(self, request):
         """Close session"""
         logout(request)
@@ -158,6 +149,7 @@ class SubViewSet(ModelViewSet):
     """Sub View"""
     serializer_class = SubSerializer
     permission_classes = [ IsAuthenticated ]
+    authentication_classes = [ TokenAuthentication ]
 
     def get_queryset(self):
         """Get the queryset"""
@@ -178,6 +170,7 @@ class EventViewSet(ModelViewSet):
     """Event ViewSet"""
     serializer_class = EventSerializer
     permission_classes = [ IsAuthenticated ]
+    authentication_classes = [ TokenAuthentication ]
 
     def get_queryset(self):
         """Get the events in scope"""
@@ -187,6 +180,8 @@ class EventViewSet(ModelViewSet):
 class LabelsViewSet(ViewSet):
     """Labels"""
     permission_classes = [ IsAuthenticated ]
+    authentication_classes = [ TokenAuthentication ]
+
     def list(self, request):
         """Get all labels for a user"""
         labels = request.user.events \

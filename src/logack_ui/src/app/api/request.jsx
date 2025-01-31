@@ -21,7 +21,7 @@ const authorizedRequestHeaders = () => {
 
     const authToken = getAuthToken();
     if (authToken) {
-        headers["Authorization"] = `Token ${authToken}`;
+        headers["Authorization"] = `Beerer ${authToken}`;
     }
 
     return headers;
@@ -36,6 +36,8 @@ export const get = (url) => fetch(url, {
 export const post = (url, data) => fetch(url, {
     headers: authorizedRequestHeaders(),
     method: "POST",
+    body: JSON.stringify(data),
 }).then(decodeJson);
 
+window.post = post;
 
